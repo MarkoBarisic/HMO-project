@@ -25,11 +25,15 @@ class Route:
         self.total_time = 0
         self.route=[(depot, 0)]
 
-    # sredi ovo do kraja
-    #def add(self, customer):
-    #    self.total_time += customer.service_time +
-    #
-    #    self.route.append((customer, ))
+    def add(self, customer):
+        self.total_time += distance(self.route[-1][0], customer)
+
+        if self.total_time < customer.ready_time:
+            self.total_time = customer.ready_time
+
+        self.route.append((customer, self.total_time))
+
+        self.total_time += customer.service_time
 
     def __repr__(self):
         output_string = ''
@@ -48,11 +52,18 @@ class Solution:
         self.total_time = 0
         self.routes = []
 
+    def add(self, route):
+        self.routes.append(route)
+        self.n_routes += 1
+        self.total_time += route.total_time
+
     def __repr__(self):
         output_string = f'{self.n_routes}\n'
 
         for i in range(len(self.routes)):
-            output_string += f'{i + 1}: {self.routes[i]}'
+            output_string += f'{i + 1}: {self.routes[i]}\n'
+
+        output_string += f'{self.total_time}'
 
         return output_string
 
@@ -65,7 +76,7 @@ def parse_input(input_file):
     with open(input_file) as f:
         lines = f.readlines()
         vehicle_number, vehicle_capacity = parse_customer_line(lines[2])
-        depot = parse_customer_line(lines[7])
+        depot = Customer(parse_customer_line(lines[7]))
         for i in range(8, len(lines)):
             params = parse_customer_line(lines[i])
             customers.append(Customer(params))
