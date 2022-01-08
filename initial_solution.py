@@ -182,15 +182,6 @@ def index_of_nearest(customer, route):
 
 
 def greedy(depot, customers, n_vehicle):
-    # sort by ready time ASC
-    customers_sorted_rt = sorted(customers, key=lambda x: x.ready_time)
-
-    # sort by due date ASC
-    customers_sorted_dt = sorted(customers_sorted_rt, key=lambda x: x.due_date)
-
-    # sort by distance from depot ASC
-    # customers_sorted_depot_dist = sorted(customers_sorted_dt, key=lambda x: distance(depot, x))
-
     visited = set()
     solution = Solution()
 
@@ -198,12 +189,13 @@ def greedy(depot, customers, n_vehicle):
         route = Route(depot)
 
         while True:
-            # sort customers by distance from the latest customer
-            eligible_customers = sorted(customers_sorted_dt, key=lambda x: distance(route.route[-1][0], x))
+            # sort customers by due_date, ready_time, distance from last customer in that order
+            eligible_customers = sorted(sorted(sorted(customers, key=lambda x: distance(route.route[-1][0], x)), key=lambda x: x.ready_time), key=lambda x: x.due_date)
+
 
             added = False
             for customer in eligible_customers:
-                if route.check_adding_constraints(customer) and customer not in visited:
+                if  customer not in visited and route.check_adding_constraints(customer):
                     route.add(customer)
                     visited.add(customer)
                     added = True
@@ -215,7 +207,23 @@ def greedy(depot, customers, n_vehicle):
         route.add(depot)
         solution.add(route)
 
+    if len(visited) < len(customers):
+        print(len(visited))
+        print(len(customers))
+        for c in customers:
+            if c not in visited:
+                print(c)
+
         """
+        # sort by due date ASC
+        customers_sorted_dt = sorted(customers, key=lambda x: x.due_date)
+
+        # sort by ready time ASC
+        customers_sorted_rt = sorted(customers_sorted_dt, key=lambda x: x.ready_time)
+
+        # sort by distance from depot ASC
+        customers_sorted_depot_dist = sorted(customers_sorted_dt, key=lambda x: distance(depot, x))
+
         for customer in customers_sorted_depot_dist:
             if customer not in visited:
                 first = customer
