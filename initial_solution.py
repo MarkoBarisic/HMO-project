@@ -28,6 +28,7 @@ class Route:
         self.remaining_capacity = vehicle_capacity
 
     def add(self, customer):
+        #zasto je tu math.ceil kod total time a kod total distance nije
         self.total_time += math.ceil(distance(self.route[-1][0], customer))
         self.total_distance += distance(self.route[-1][0], customer)
 
@@ -42,15 +43,30 @@ class Route:
     def check_adding_constraints(self, customer):
         total_time = self.total_time + math.ceil(distance(self.route[-1][0], customer))
 
+        #oce probit capacity constraint ili due date contraint
         if self.remaining_capacity < customer.demand or total_time > customer.due_date:
             return False
 
         if total_time < customer.ready_time:
             total_time = customer.ready_time
+
+        #oce probit due date za povratak u depot
         return total_time + customer.service_time + math.ceil(distance(customer, self.route[0][0])) <= self.route[0][
             0].due_date
 
     def remove(self, index):
+        #self.route.pop(index)
+
+        #new_route = Route(self.route[0][0])
+
+        #for el in self.route:
+        #    new_route.add(el[0])
+
+
+        #self.route = new_route[::]
+
+        #return self.route
+
         new_route = Route(self.route[0][0])
         for i, customer in enumerate([x[0] for x in self.route][1:]):
             if i != index - 1:
@@ -72,6 +88,7 @@ class Route:
                 new_route1.add(customer_i)
             else:
                 add_possible[0] = False
+
             if add_possible[1] and new_route2.check_adding_constraints(customer_i):
                 new_route2.add(customer_i)
             else:
@@ -164,19 +181,46 @@ def index_of_nearest(customer, route):
     return ind + 1
 
 
-def greedy(depot, customers):
+def greedy(depot, customers, n_vehicle):
+    # sort by ready time ASC
     customers_sorted_rt = sorted(customers, key=lambda x: x.ready_time)
+
+    # sort by due date ASC
     customers_sorted_dt = sorted(customers_sorted_rt, key=lambda x: x.due_date)
-    customers_sorted_depot_dist = sorted(customers_sorted_dt, key=lambda x: distance(depot, x))
+
+    # sort by distance from depot ASC
+    # customers_sorted_depot_dist = sorted(customers_sorted_dt, key=lambda x: distance(depot, x))
+
     visited = set()
     solution = Solution()
 
-    while len(visited) < len(customers):
+    while len(visited) < len(customers) and solution.n_routes < n_vehicle:
+        route = Route(depot)
+
+        while True:
+            # sort customers by distance from the latest customer
+            eligible_customers = sorted(customers_sorted_dt, key=lambda x: distance(route.route[-1][0], x))
+
+            added = False
+            for customer in eligible_customers:
+                if route.check_adding_constraints(customer) and customer not in visited:
+                    route.add(customer)
+                    visited.add(customer)
+                    added = True
+                    break
+
+            if route.remaining_capacity == 0 or not added:
+                break
+
+        route.add(depot)
+        solution.add(route)
+
+        """
         for customer in customers_sorted_depot_dist:
             if customer not in visited:
                 first = customer
                 break
-        route = Route(depot)
+
         route.add(first)
         visited.add(first)
 
@@ -190,6 +234,7 @@ def greedy(depot, customers):
                 break
         route.add(depot)
         solution.add(route)
+        """
 
     return solution
 
@@ -268,6 +313,10 @@ if __name__ == "__main__":
     #     print(c)
     # print()
 
-    solution = greedy(depot, customers)
-    solution = local_search(solution)
+    solution = greedy(depot, customers, n_vehicle)
+    #solution = local_search(solution)
+
+    with open(sys.argv[2], "w") as out_file:
+        out_file.write(f'{solution}')
+
     print(solution)
