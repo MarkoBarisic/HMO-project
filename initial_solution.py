@@ -1,6 +1,7 @@
 import sys
 import math
 import itertools
+import random
 
 # CLASSES
 class Customer:
@@ -29,7 +30,6 @@ class Route:
 
 
     def add(self, customer):
-        #zasto je tu math.ceil kod total time a kod total distance nije
         self.total_time += math.ceil(distance(self.route[-1][0], customer))
         self.total_distance += distance(self.route[-1][0], customer)
 
@@ -253,7 +253,7 @@ def greedy(depot, customers, n_vehicle):
     return solution
 
 
-def get_neighbor(current_solution, operation):
+def get_neighbor(current_solution, operation, operation_1_mode='exh', operation_2_size=5):
     # create a neighborhood by applying neighbor operator to each route
     neighborhood = []
 
@@ -261,11 +261,10 @@ def get_neighbor(current_solution, operation):
 
     for route_index, route in enumerate(current_sorted_routes):
 
-        neighbor_candidates = []
-
-        # neighbor = Solution()
-
         if operation == 1:
+            neighbor_candidates = []
+
+            # neighbor = Solution()
             # 1) operator - take customer from a route and insert it into antoher route
             for insert_customer_index, insert_customer in enumerate(route.route[1:-1]):
 
@@ -276,7 +275,11 @@ def get_neighbor(current_solution, operation):
                 # try to insert customer into route, start the search from largest routes
                 for insert_route_index, insert_route in enumerate(current_sorted_routes[::-1]):
                     if route == insert_route:
-                        continue
+                        # OVAJ DIO UTJECE NA i1, i2, i3 zele continue, i4, i5, i6 zeli break
+                        if operation_1_mode=='quick':
+                            break
+                        if operation_1_mode=='exh':
+                            continue
 
                     # check capacity constraint
                     if insert_route.remaining_capacity - insert_customer[0].demand < 0:
@@ -326,12 +329,17 @@ def get_neighbor(current_solution, operation):
 
                 neighborhood.append(neighbor_candidates[0])
 
+                # dio koji utjece isto i4, i5, i6 zeli break
+                if operation_1_mode=='quick':
+                    break
+
+
         elif operation == 2:
             # 2) operator - rearange 3 sequential customers in a route
             if len(route.route) - 2 < 2:
                 continue
 
-            permutation_size = min(len(route.route) - 2, 5)
+            permutation_size = min(len(route.route) - 2, operation_2_size)
 
             for i in range(1, len(route.route) - permutation_size):
                 neighbor = Solution()
@@ -365,7 +373,7 @@ def get_neighbor(current_solution, operation):
         improved_total_distance_only = neighborhood[0].n_routes == current_solution.n_routes and neighborhood[0].total_distance < current_solution.total_distance
         improved_shortest_route = len(neighborhood[0].shortest_route().route) < len(current_solution.shortest_route().route)
 
-        if improved_n_vehicles or improved_total_distance_only:
+        if improved_n_vehicles or improved_total_distance_only or improved_shortest_route:
             return neighborhood[0], True
 
         else:
@@ -426,32 +434,46 @@ def get_neighbor(current_solution, operation):
 def local_search(current_solution, improving_only=True, max_iter=2000):
     iter = 1
 
-    op_2_modulo = 5
+    best_solution = current_solution
+
+    operation_1_mode = 'exh' if current_solution.n_serverd_customers < 500 else 'quick'
+    operation_2_size = 3
 
     while iter <= max_iter:
-        if iter%100 == 0:
-            op_2_modulo = max(op_2_modulo-1, 2)
+        new_best = False
+        new_solutions = []
 
-        if iter % op_2_modulo == 0:
-            operation = 2
+        for operation in range(1, 3):
+            new_solution, improving = get_neighbor(current_solution, operation, operation_1_mode, operation_2_size)
+
+            if improving:
+                current_solution = new_solution
+                break
         else:
-            operation = 1
+            if new_solutions:
+                current_solution = random.choice(new_solutions)
+            else:
+                if operation_2_size == 6:
+                    exit()
+                    
+                operation_2_size += 1
+                continue
 
-        new_solution, improving = get_neighbor(current_solution, operation)
+        # check if current is new best
+        if current_solution.n_routes < best_solution.n_routes:
+            best_solution = current_solution
+            new_best = True
 
-        if not new_solution:
-            break
+        elif current_solution.n_routes == best_solution.n_routes:
+            if current_solution.total_distance < best_solution.total_distance:
+                best_solution = current_solution
+                new_best = True
 
-        if improving_only and not improving:
-            break
-
-        current_solution = new_solution
+        if new_best:
+            with open(sys.argv[2], "w") as out_file:
+                out_file.write(f'{best_solution}')
 
         print(f'----------------------------\niter: {iter}\nserverd customers: {current_solution.n_serverd_customers}\n{current_solution}')
-
-        #if input() == 'd':
-        #    exit()
-
         iter += 1
 
     return current_solution
@@ -471,7 +493,7 @@ if __name__ == "__main__":
     solution = greedy(depot, customers, n_vehicle)
     print(f'Greedy\n{solution}')
 
-    solution = local_search(solution, improving_only=False, max_iter=500)
-
     with open(sys.argv[2], "w") as out_file:
         out_file.write(f'{solution}')
+
+    solution = local_search(solution, improving_only=False, max_iter=500)
