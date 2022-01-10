@@ -1,6 +1,6 @@
 import sys
 import math
-
+import itertools
 
 # CLASSES
 class Customer:
@@ -27,6 +27,7 @@ class Route:
         self.route = [(depot, 0)]
         self.remaining_capacity = vehicle_capacity
 
+
     def add(self, customer):
         #zasto je tu math.ceil kod total time a kod total distance nije
         self.total_time += math.ceil(distance(self.route[-1][0], customer))
@@ -39,6 +40,7 @@ class Route:
 
         self.total_time += customer.service_time
         self.remaining_capacity -= customer.demand
+
 
     def check_adding_constraints(self, customer):
         total_time = self.total_time + math.ceil(distance(self.route[-1][0], customer))
@@ -54,64 +56,79 @@ class Route:
         return total_time + customer.service_time + math.ceil(distance(customer, self.route[0][0])) <= self.route[0][
             0].due_date
 
+
     def remove(self, index):
-        #self.route.pop(index)
-
-        #new_route = Route(self.route[0][0])
-
-        #for el in self.route:
-        #    new_route.add(el[0])
-
-
-        #self.route = new_route[::]
-
-        #return self.route
+        if index == 0 or index == len(self.route) or len(self.route) == 3:
+            return None
 
         new_route = Route(self.route[0][0])
-        for i, customer in enumerate([x[0] for x in self.route][1:]):
-            if i != index - 1:
-                new_route.add(customer)
+
+        for i in range(1, len(self.route)):
+            if i != index:
+                new_route.add(self.route[i][0])
+
         return new_route
 
-    def insert(self, customer, index, add_possible=[True, True]):
-        new_route1 = Route(self.route[0][0])
-        new_route2 = Route(self.route[0][0])
 
-        for i, customer_i in enumerate([x[0] for x in self.route][1:]):
-            if i == index - 1:
-                if add_possible[0] and new_route1.check_adding_constraints(customer):
-                    new_route1.add(customer)
+    def insert(self, customer, index):
+        if index == 0:
+            return None
+
+        new_route = Route(self.route[0][0])
+
+        i = 1
+        while i < len(self.route):
+            if i == index:
+                cus = customer
+                index = -1
+
+            else:
+                cus = self.route[i][0]
+                i += 1
+
+            if not new_route.check_adding_constraints(cus):
+                return None
+
+            new_route.add(cus)
+
+        return new_route
+
+    def permutations(self, start_i, size):
+        perm_list = []
+
+        for perm in itertools.permutations(range(start_i, start_i + size)):
+            new_route = Route(self.route[0][0])
+
+            cnt = 1
+            valid = True
+            while cnt < len(self.route):
+                if cnt in perm:
+                    for ind in perm:
+                        if not new_route.check_adding_constraints(self.route[ind][0]):
+                            break
+
+                        else:
+                            new_route.add(self.route[ind][0])
+                    else:
+                        cnt = max(perm) + 1
+                        continue
+
+                    valid = False
+                    break
+
                 else:
-                    add_possible[0] = False
+                    if not new_route.check_adding_constraints(self.route[cnt][0]):
+                        valid = False
+                        break
 
-            if add_possible[0] and new_route1.check_adding_constraints(customer_i):
-                new_route1.add(customer_i)
-            else:
-                add_possible[0] = False
+                    else:
+                        new_route.add(self.route[cnt][0])
+                        cnt += 1
 
-            if add_possible[1] and new_route2.check_adding_constraints(customer_i):
-                new_route2.add(customer_i)
-            else:
-                add_possible[1] = False
+            if valid:
+                perm_list.append(new_route)
 
-            if i == index - 1:
-                if add_possible[1] and new_route2.check_adding_constraints(customer):
-                    new_route2.add(customer)
-                else:
-                    add_possible[1] = False
-
-        if add_possible[0] and add_possible[1]:
-            if new_route1.route[-1][1] < new_route2.route[-1][1]:
-                return new_route1
-            else:
-                return new_route2
-
-        if add_possible[0]:
-            return new_route1
-        if add_possible[1]:
-            return new_route2
-
-        return None
+        return perm_list
 
     def __repr__(self):
         output_string = ''
@@ -123,6 +140,20 @@ class Route:
 
         return output_string
 
+    def equals(self, route_2):
+        if (len(self.route) != len(route_2.route)
+            or self.total_time != route_2.total_time
+            or self.total_distance != route_2.total_distance
+            or self.remaining_capacity != route_2.remaining_capacity):
+            return False
+
+        for i in range(len(self.route)):
+            if (self.route[i][0].index != route_2.route[i][0].index
+                or self.route[i][1] != route_2.route[i][1]):
+                return False
+
+        return True
+
 
 class Solution:
     def __init__(self):
@@ -130,15 +161,20 @@ class Solution:
         self.total_time = 0
         self.total_distance = 0
         self.routes = []
+        self.n_serverd_customers = 0
 
     def get_sorted_routes(self):
-        return sorted(self.routes, key=lambda x: len(x.route))
+        return sorted(sorted(self.routes, key=lambda x: x.total_distance), key=lambda x: len(x.route))
 
     def add(self, route):
         self.routes.append(route)
         self.n_routes += 1
         self.total_time += route.total_time
         self.total_distance += route.total_distance
+        self.n_serverd_customers += len(route.route)-2
+
+    def shortest_route(self):
+        return sorted(self.routes, key=lambda route: len(route.route))[0]
 
     def __repr__(self):
         output_string = f'{self.n_routes}\n'
@@ -214,40 +250,131 @@ def greedy(depot, customers, n_vehicle):
             if c not in visited:
                 print(c)
 
-        """
-        # sort by due date ASC
-        customers_sorted_dt = sorted(customers, key=lambda x: x.due_date)
-
-        # sort by ready time ASC
-        customers_sorted_rt = sorted(customers_sorted_dt, key=lambda x: x.ready_time)
-
-        # sort by distance from depot ASC
-        customers_sorted_depot_dist = sorted(customers_sorted_dt, key=lambda x: distance(depot, x))
-
-        for customer in customers_sorted_depot_dist:
-            if customer not in visited:
-                first = customer
-                break
-
-        route.add(first)
-        visited.add(first)
-
-        customers_sorted_first_dist = sorted(customers_sorted_dt, key=lambda x: distance(first, x))
-        for i in range(1, len(customers_sorted_first_dist)):
-            customer = customers_sorted_first_dist[i]
-            if route.check_adding_constraints(customer) and customer not in visited:
-                route.add(customer)
-                visited.add(customer)
-            if route.remaining_capacity == 0:
-                break
-        route.add(depot)
-        solution.add(route)
-        """
-
     return solution
 
 
-def get_neighbor(current_solution):
+def get_neighbor(current_solution, operation):
+    # create a neighborhood by applying neighbor operator to each route
+    neighborhood = []
+
+    current_sorted_routes = current_solution.get_sorted_routes()
+
+    for route_index, route in enumerate(current_sorted_routes):
+
+        neighbor_candidates = []
+
+        # neighbor = Solution()
+
+        if operation == 1:
+            # 1) operator - take customer from a route and insert it into antoher route
+            for insert_customer_index, insert_customer in enumerate(route.route[1:-1]):
+
+                found_neighbor = False
+
+                neighbor = Solution()
+
+                # try to insert customer into route, start the search from largest routes
+                for insert_route_index, insert_route in enumerate(current_sorted_routes[::-1]):
+                    if route == insert_route:
+                        continue
+
+                    # check capacity constraint
+                    if insert_route.remaining_capacity - insert_customer[0].demand < 0:
+                        continue
+
+                    # gather all version of a route with inserted customer
+                    insert_route_versions = []
+
+                    for insert_index in range(1, len(insert_route.route)):
+                        modified_route = insert_route.insert(insert_customer[0], insert_index)
+
+                        if modified_route:
+                            #print('modified_route:', modified_route)
+                            insert_route_versions.append(modified_route)
+
+                    # if the customer can't be added try the next route
+                    if not insert_route_versions:
+                        continue
+
+                    # else a neighbor is found, create a solution
+                    # pick route version
+                    if len(insert_route_versions) > 1:
+                        insert_route_versions.sort(key=lambda x: x.total_distance)
+
+                    for r_i, r in enumerate(current_sorted_routes):
+                        if r_i == route_index:
+                            route_rem = route.remove(insert_customer_index + 1)
+                            if route_rem:
+                                neighbor.add(route_rem)
+
+                        elif r_i == current_solution.n_routes - 1 - insert_route_index:
+                            neighbor.add(insert_route_versions[0])
+
+                        else:
+                            neighbor.add(r)
+
+                    found_neighbor = True
+                    break
+
+                if found_neighbor:
+                    neighbor_candidates.append(neighbor)
+
+
+            if neighbor_candidates:
+                neighbor_candidates.sort(key=lambda sol: sol.total_distance)
+                neighbor_candidates.sort(key=lambda sol: sol.n_routes)
+
+                neighborhood.append(neighbor_candidates[0])
+
+        elif operation == 2:
+            # 2) operator - rearange 3 sequential customers in a route
+            if len(route.route) - 2 < 2:
+                continue
+
+            permutation_size = min(len(route.route) - 2, 5)
+
+            for i in range(1, len(route.route) - permutation_size):
+                neighbor = Solution()
+                permutations = route.permutations(i, permutation_size)
+
+                if permutations:
+                    permutations.sort(key=lambda x: x.total_distance)
+
+                    for r_i, r in enumerate(current_sorted_routes):
+                        if r_i == route_index:
+                            neighbor.add(permutations[0])
+
+                        else:
+                            neighbor.add(r)
+
+                    neighborhood.append(neighbor)
+
+        #elif operation == 3:
+            # 3) operator - exchange customers between two routes
+        #    for swap_route_index, swap_route in enumerate(current_sorted_routes):
+        #        if route == swap_route:
+        #            continue
+
+
+    if neighborhood:
+        neighborhood.sort(key=lambda sol: sol.total_distance)
+        neighborhood.sort(key=lambda sol: len(sol.shortest_route().route))
+        neighborhood.sort(key=lambda sol: sol.n_routes)
+
+        improved_n_vehicles = neighborhood[0].n_routes < current_solution.n_routes
+        improved_total_distance_only = neighborhood[0].n_routes == current_solution.n_routes and neighborhood[0].total_distance < current_solution.total_distance
+        improved_shortest_route = len(neighborhood[0].shortest_route().route) < len(current_solution.shortest_route().route)
+
+        if improved_n_vehicles or improved_total_distance_only:
+            return neighborhood[0], True
+
+        else:
+            return neighborhood[0], False
+
+    else:
+        return None, False
+    (
+    """
     current_solution_sorted = current_solution.get_sorted_routes()
 
     for i in range(len(current_solution_sorted)):
@@ -293,20 +420,40 @@ def get_neighbor(current_solution):
                     return solution, True
 
     return current_solution, False
+    """
+    )
 
+def local_search(current_solution, improving_only=True, max_iter=2000):
+    iter = 1
 
-def local_search(current_solution, number_of_iterations=100):
-    better_exists = True
-    iter = 0
+    op_2_modulo = 5
 
-    while better_exists:
-        current_solution, better_exists = get_neighbor(current_solution)
-        #print(better_exists, iter, len(current_solution.get_sorted_routes()))
-        print(f'{better_exists=}, {iter=}, n_routes={len(current_solution.get_sorted_routes())}, distance={current_solution.total_distance}')
-        #print(current_solution)
-        iter += 1
-        if iter >= number_of_iterations:
+    while iter <= max_iter:
+        if iter%100 == 0:
+            op_2_modulo = max(op_2_modulo-1, 2)
+
+        if iter % op_2_modulo == 0:
+            operation = 2
+        else:
+            operation = 1
+
+        new_solution, improving = get_neighbor(current_solution, operation)
+
+        if not new_solution:
             break
+
+        if improving_only and not improving:
+            break
+
+        current_solution = new_solution
+
+        print(f'----------------------------\niter: {iter}\nserverd customers: {current_solution.n_serverd_customers}\n{current_solution}')
+
+        #if input() == 'd':
+        #    exit()
+
+        iter += 1
+
     return current_solution
 
 
@@ -322,9 +469,9 @@ if __name__ == "__main__":
     # print()
 
     solution = greedy(depot, customers, n_vehicle)
-    #solution = local_search(solution)
+    print(f'Greedy\n{solution}')
+
+    solution = local_search(solution, improving_only=False, max_iter=500)
 
     with open(sys.argv[2], "w") as out_file:
         out_file.write(f'{solution}')
-
-    print(solution)
