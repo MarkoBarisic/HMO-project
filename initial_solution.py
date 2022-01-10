@@ -56,9 +56,20 @@ class Route:
         return total_time + customer.service_time + math.ceil(distance(customer, self.route[0][0])) <= self.route[0][
             0].due_date
 
-
     def remove(self, index):
         if index == 0 or index == len(self.route) or len(self.route) == 3:
+            return None
+
+        new_route = Route(self.route[0][0])
+
+        for i in range(1, len(self.route)):
+            if i != index:
+                new_route.add(self.route[i][0])
+
+        return new_route
+
+    def remove2(self, index):
+        if index == 0 or index == len(self.route):
             return None
 
         new_route = Route(self.route[0][0])
@@ -357,11 +368,50 @@ def get_neighbor(current_solution, operation, operation_1_mode='exh', operation_
 
                     neighborhood.append(neighbor)
 
-        #elif operation == 3:
-            # 3) operator - exchange customers between two routes
-        #    for swap_route_index, swap_route in enumerate(current_sorted_routes):
-        #        if route == swap_route:
-        #            continue
+        elif operation == 3:
+            best_solution_op3 = None
+            for j in range(i + 1, len(current_sorted_routes)):
+                for k in range(1, len(current_sorted_routes[i].route) - 1):
+
+                    distance_before1 = current_sorted_routes[route_index].total_distance
+                    distance_before2 = current_sorted_routes[j].total_distance
+
+                    index = index_of_nearest(current_sorted_routes[route_index].route[k][0], current_sorted_routes[j].route)
+                    customer = current_sorted_routes[j].route[index][0]
+                    new_route2 = current_sorted_routes[j].remove2(index)
+                    new_route2 = new_route2.insert(current_sorted_routes[i].route[k][0], index)
+                    new_route1 = current_sorted_routes[route_index].remove2(k)
+                    new_route1 = new_route1.insert(customer, k)
+
+                    if new_route1 and new_route2:
+                        solution = Solution()
+                        for ind, route in enumerate(current_sorted_routes):
+                            if ind == route_index:
+                                solution.add(new_route1)
+                            elif ind == j:
+                                solution.add(new_route2)
+                            else:
+                                solution.add(route)
+
+                        if distance_before1 + distance_before2 > new_route1.total_distance + new_route2.total_distance:
+                            if operation_1_mode == 'quick':
+                                return solution, True
+                            else:
+                                if not best_solution_op3 or (best_solution_op3 and best_solution_op3.total_distance > solution.total_distance):
+                                    best_solution_op3 = solution
+                        else:
+                            if not neighborhood:
+                                neighborhood.append(solution)
+                            else:
+                                if neighborhood[0].total_distance < solution.total_distance:
+                                    neighborhood[0] = solution
+            if best_solution_op3:
+                return best_solution_op3, True
+
+            if neighborhood:
+                return neighborhood[0], False
+            else:
+                return None, False
 
 
     if neighborhood:
@@ -381,55 +431,7 @@ def get_neighbor(current_solution, operation, operation_1_mode='exh', operation_
 
     else:
         return None, False
-    (
-    """
-    current_solution_sorted = current_solution.get_sorted_routes()
 
-    for i in range(len(current_solution_sorted)):
-        for j in range(i + 1, len(current_solution_sorted)):
-            for k in range(1, len(current_solution_sorted[i].route) - 1):
-
-                index = index_of_nearest(current_solution_sorted[i].route[k][0], current_solution_sorted[j].route)
-                new_route = current_solution_sorted[j].insert(current_solution_sorted[i].route[k][0], index, [True, True])
-
-                if new_route:
-                    current_solution_sorted[j] = new_route
-                    route_after_remove = current_solution_sorted[i].remove(k)
-                    if len(route_after_remove.route) > 2:
-                        current_solution_sorted[i] = route_after_remove
-                    else:
-                        del current_solution_sorted[i]
-                    solution = Solution()
-                    for route in current_solution_sorted:
-                        solution.add(route)
-                    return solution, True
-
-    for i in range(len(current_solution_sorted)):
-        for j in range(i + 1, len(current_solution_sorted)):
-            for k in range(1, len(current_solution_sorted[i].route) - 1):
-
-                distance_before1 = current_solution_sorted[i].total_distance
-                distance_before2 = current_solution_sorted[j].total_distance
-
-                index = index_of_nearest(current_solution_sorted[i].route[k][0], current_solution_sorted[j].route)
-                customer = current_solution_sorted[j].route[index][0]
-                new_route2 = current_solution_sorted[j].remove(index)
-                new_route2 = new_route2.insert(current_solution_sorted[i].route[k][0], index, add_possible=[True, False])
-                new_route1 = current_solution_sorted[i].remove(k)
-                new_route1 = new_route1.insert(customer, k, add_possible=[True, False])
-
-                if new_route1 and new_route2 and \
-                        distance_before1 + distance_before2 > new_route1.total_distance + new_route2.total_distance:
-                    current_solution_sorted[i] = new_route1
-                    current_solution_sorted[j] = new_route2
-                    solution = Solution()
-                    for route in current_solution_sorted:
-                        solution.add(route)
-                    return solution, True
-
-    return current_solution, False
-    """
-    )
 
 def local_search(current_solution, improving_only=True, max_iter=2000):
     iter = 1
@@ -443,19 +445,24 @@ def local_search(current_solution, improving_only=True, max_iter=2000):
         new_best = False
         new_solutions = []
 
-        for operation in range(1, 3):
+        for operation in range(1, 4):
             new_solution, improving = get_neighbor(current_solution, operation, operation_1_mode, operation_2_size)
 
             if improving:
                 current_solution = new_solution
                 break
+
+            if new_solution:
+                new_solutions.append(new_solution)
+
         else:
             if new_solutions:
                 current_solution = random.choice(new_solutions)
+
             else:
                 if operation_2_size == 6:
                     exit()
-                    
+
                 operation_2_size += 1
                 continue
 
@@ -469,14 +476,14 @@ def local_search(current_solution, improving_only=True, max_iter=2000):
                 best_solution = current_solution
                 new_best = True
 
-        if new_best:
-            with open(sys.argv[2], "w") as out_file:
-                out_file.write(f'{best_solution}')
+        # if new_best:
+        #     with open(sys.argv[2], "w") as out_file:
+        #         out_file.write(f'{best_solution}')
 
         print(f'----------------------------\niter: {iter}\nserverd customers: {current_solution.n_serverd_customers}\n{current_solution}')
         iter += 1
 
-    return current_solution
+    return best_solution
 
 
 if __name__ == "__main__":
@@ -493,7 +500,10 @@ if __name__ == "__main__":
     solution = greedy(depot, customers, n_vehicle)
     print(f'Greedy\n{solution}')
 
+    # with open(sys.argv[2], "w") as out_file:
+    #     out_file.write(f'{solution}')
+
+    solution = local_search(solution, improving_only=False, max_iter=1000)
+
     with open(sys.argv[2], "w") as out_file:
         out_file.write(f'{solution}')
-
-    solution = local_search(solution, improving_only=False, max_iter=500)
