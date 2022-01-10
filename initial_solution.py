@@ -370,8 +370,8 @@ def get_neighbor(current_solution, operation, operation_1_mode='exh', operation_
 
         elif operation == 3:
             best_solution_op3 = None
-            for j in range(i + 1, len(current_sorted_routes)):
-                for k in range(1, len(current_sorted_routes[i].route) - 1):
+            for j in range(route_index + 1, len(current_sorted_routes)):
+                for k in range(1, len(current_sorted_routes[route_index].route) - 1):
 
                     distance_before1 = current_sorted_routes[route_index].total_distance
                     distance_before2 = current_sorted_routes[j].total_distance
@@ -379,7 +379,7 @@ def get_neighbor(current_solution, operation, operation_1_mode='exh', operation_
                     index = index_of_nearest(current_sorted_routes[route_index].route[k][0], current_sorted_routes[j].route)
                     customer = current_sorted_routes[j].route[index][0]
                     new_route2 = current_sorted_routes[j].remove2(index)
-                    new_route2 = new_route2.insert(current_sorted_routes[i].route[k][0], index)
+                    new_route2 = new_route2.insert(current_sorted_routes[route_index].route[k][0], index)
                     new_route1 = current_sorted_routes[route_index].remove2(k)
                     new_route1 = new_route1.insert(customer, k)
 
@@ -476,9 +476,9 @@ def local_search(current_solution, improving_only=True, max_iter=2000):
                 best_solution = current_solution
                 new_best = True
 
-        # if new_best:
-        #     with open(sys.argv[2], "w") as out_file:
-        #         out_file.write(f'{best_solution}')
+        if new_best:
+            with open(sys.argv[2], "w") as out_file:
+                out_file.write(f'{best_solution}')
 
         print(f'----------------------------\niter: {iter}\nserverd customers: {current_solution.n_serverd_customers}\n{current_solution}')
         iter += 1
@@ -504,6 +504,3 @@ if __name__ == "__main__":
     #     out_file.write(f'{solution}')
 
     solution = local_search(solution, improving_only=False, max_iter=1000)
-
-    with open(sys.argv[2], "w") as out_file:
-        out_file.write(f'{solution}')
